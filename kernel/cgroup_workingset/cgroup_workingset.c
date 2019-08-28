@@ -25,7 +25,7 @@
 #include <linux/delayacct.h>
 #include <linux/hugetlb_inline.h>
 #include <linux/kthread.h>
-#include <linux/mm.h>
+#include <linux/pagewalk.h>
 #include <linux/mm_inline.h>
 #include <linux/module.h>
 #include <linux/sched/mm.h>
