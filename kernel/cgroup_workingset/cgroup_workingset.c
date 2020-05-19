@@ -346,13 +346,16 @@ static int clear_pte_young_range(
 	return 0;
 }
 
+static const struct mm_walk_ops clear_young_walk_ops = {
+	.pmd_entry = clear_pte_young_range,
+};
+
 static int workingset_clear_pte_young_of_process(int pid)
 {
 	int ret = 0;
 	struct task_struct *task = NULL;
 	struct mm_struct *mm = NULL;
 	struct vm_area_struct *vma = NULL;
-	struct mm_walk clear_young_walk = {};
 	struct s_clear_param cp;
 
 	if (pid <= 0)
@@ -370,12 +373,9 @@ static int workingset_clear_pte_young_of_process(int pid)
 	mm = get_task_mm(task);
 	if (!mm)
 		goto out;
-	clear_young_walk.mm = mm;
-	clear_young_walk.pmd_entry = clear_pte_young_range;
 
 	down_read(&mm->mmap_sem);
 	cp.nr_cleared = 0;
-	clear_young_walk.private = &cp;
 	for (vma = mm->mmap; vma; vma = vma->vm_next) {
 		if (is_vm_hugetlb_page(vma))
 			continue;
@@ -385,7 +385,7 @@ static int workingset_clear_pte_young_of_process(int pid)
 
 		cp.vma = vma;
 		walk_page_range(
-			vma->vm_start, vma->vm_end, &clear_young_walk);
+			mm, vma->vm_start, vma->vm_end, &clear_young_walk_ops, &cp);
 	}
 	/*
 	 * Entries with the Access flag set to 0 are never held in the TLB,
