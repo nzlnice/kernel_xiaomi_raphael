@@ -440,6 +440,12 @@ void lru_cache_add(struct page *page)
 {
 	VM_BUG_ON_PAGE(PageActive(page) && PageUnevictable(page), page);
 	VM_BUG_ON_PAGE(PageLRU(page), page);
+	
+	/* see the comment in lru_gen_add_page() */
+	if (lru_gen_enabled() && !PageUnevictable(page) &&
+	    lru_gen_in_fault() && !(current->flags & PF_MEMALLOC))
+		SetPageActive(page);
+	
 	__lru_cache_add(page);
 }
 
@@ -570,14 +576,13 @@ static void lru_deactivate_file_fn(struct page *page, struct lruvec *lruvec,
 static void lru_deactivate_fn(struct page *page, struct lruvec *lruvec,
 			    void *arg)
 {
-	if (PageLRU(page) && PageActive(page) && !PageUnevictable(page)) {
+	if (PageLRU(page) && !PageUnevictable(page) && (PageActive(page) || lru_gen_enabled())) {
 		int file = page_is_file_cache(page);
-		int lru = page_lru_base_type(page);
 
-		del_page_from_lru_list(page, lruvec, lru + LRU_ACTIVE);
+		del_page_from_lru_list(page, lruvec);
 		ClearPageActive(page);
 		ClearPageReferenced(page);
-		add_page_to_lru_list(page, lruvec, lru);
+		add_page_to_lru_list(page, lruvec);
 
 		__count_vm_events(PGDEACTIVATE, hpage_nr_pages(page));
 		update_page_reclaim_stat(lruvec, file, 0);
@@ -679,7 +684,7 @@ void deactivate_file_page(struct page *page)
  */
 void deactivate_page(struct page *page)
 {
-	if (PageLRU(page) && PageActive(page) && !PageUnevictable(page)) {
+	if (PageLRU(page) && !PageUnevictable(page) && (PageActive(page) || lru_gen_enabled())) {
 		struct pagevec *pvec = &get_cpu_var(lru_deactivate_pvecs);
 
 		get_page(page);
