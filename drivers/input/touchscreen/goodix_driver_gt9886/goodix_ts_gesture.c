@@ -377,6 +377,7 @@ static int gsx_gesture_ist(struct goodix_ts_core *core_data,
 		if ((FP_Event_Gesture == 1) && (temp_data[2] == 0x46)) {
 			input_report_key(core_data->input_dev, BTN_INFO, 1);
 			core_data->fod_pressed = true;
+			sysfs_notify(&core_data->gtp_touch_dev->kobj, NULL, "fp_state");
 
 			/*wait for report key event*/
 			FP_Event_Gesture = 0;
@@ -400,6 +401,7 @@ static int gsx_gesture_ist(struct goodix_ts_core *core_data,
 				input_report_key(core_data->input_dev, BTN_INFO, 0);
 				input_sync(core_data->input_dev);
 				core_data->fod_pressed = false;
+				sysfs_notify(&core_data->gtp_touch_dev->kobj, NULL, "fp_state");
 			}
 			core_data->sleep_finger = 0;
 		}
