@@ -375,9 +375,9 @@ else
 HOSTCC	= gcc
 HOSTCXX	= g++
 endif
-HOSTCFLAGS   := -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 \
+HOSTCFLAGS   := -Wall -Wmissing-prototypes -Wstrict-prototypes -O3 \
 		-fomit-frame-pointer -std=gnu89 $(HOST_LFS_CFLAGS)
-HOSTCXXFLAGS := -O2 $(HOST_LFS_CFLAGS)
+HOSTCXXFLAGS := -O3 $(HOST_LFS_CFLAGS)
 HOSTLDFLAGS  := $(HOST_LFS_LDFLAGS)
 HOST_LOADLIBES := $(HOST_LFS_LIBS)
 
@@ -723,6 +723,10 @@ endif
 LLVM_AR		:= llvm-ar
 LLVM_NM		:= llvm-nm
 export LLVM_AR LLVM_NM
+# Set O3 optimization level for LTO with most linkers
+LDFLAGS		+= -O3
+LDFLAGS		+= --plugin-opt=O3
+LDFLAGS		+= --plugin-opt=-import-instr-limit=40
 endif
 
 # The arch Makefile can set ARCH_{CPP,A,C}FLAGS to override the default
@@ -731,8 +735,6 @@ ARCH_CPPFLAGS :=
 ARCH_AFLAGS :=
 ARCH_CFLAGS :=
 include arch/$(SRCARCH)/Makefile
-
-OPT_FLAGS := -O3 -march=armv8.2-a+lse+fp16+dotprod -mcpu=cortex-a55+crypto+crc
 
 KBUILD_CFLAGS	+= $(call cc-option,-fno-delete-null-pointer-checks,)
 KBUILD_CFLAGS	+= $(call cc-disable-warning,frame-address,)
@@ -745,13 +747,11 @@ KBUILD_CFLAGS	+= $(call cc-disable-warning, attribute-alias)
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS   += -Os
 else
-KBUILD_CFLAGS	+= $(OPT_FLAGS)
-KBUILD_AFLAGS   += $(OPT_FLAGS)
-ifdef CONFIG_LTO_CLANG
-KBUILD_LDFLAGS += --plugin-opt=O3 --strip-debug -march=armv8.2-a+lse+fp16+dotprod -mcpu=cortex-a55+crypto+crc
-else
-KBUILD_LDFLAGS += $(OPT_FLAGS)
+KBUILD_CFLAGS   += -O3
 endif
+
+ifeq ($(cc-name),clang)
+KBUILD_CFLAGS	+= -march=armv8.2-a+lse+fp16+dotprod -mcpu=cortex-a76+crypto+crc
 endif
 
 # Tell gcc to never replace conditional load with a non-conditional one
@@ -826,6 +826,11 @@ KBUILD_CFLAGS += $(call cc-option,-fno-delete-null-pointer-checks,)
 # These warnings generated too much noise in a regular build.
 # Use make W=1 to enable them (see scripts/Makefile.extrawarn)
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)
+
+ifeq ($(ld-name),lld)
+KBUILD_LDFLAGS  += -mllvm -mcpu=cortex-a76
+LDFLAGS += --lto-O3
+endif
 
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-const-variable)
 
