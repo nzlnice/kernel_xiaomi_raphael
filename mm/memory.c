@@ -85,6 +85,10 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/pagefault.h>
 
+#ifdef CONFIG_HW_CGROUP_WORKINGSET
+#include <linux/workingset_cgroup.h>
+#endif
+
 #if defined(LAST_CPUPID_NOT_IN_PAGE_FLAGS) && !defined(CONFIG_COMPILE_TEST)
 #warning Unfortunate NUMA and NUMA Balancing config, growing page-frame for last_cpupid.
 #endif
@@ -4025,7 +4029,12 @@ static int do_read_fault(struct vm_fault *vmf)
 	 * if page by the offset is not ready to be mapped (cold cache or
 	 * something).
 	 */
+#ifdef CONFIG_HW_CGROUP_WORKINGSET
+	if (vma->vm_ops->map_pages && fault_around_bytes >> PAGE_SHIFT > 1
+	&& likely(!(current->ext_flags & PF_EXT_WSCG_MONITOR))) {
+#else
 	if (vma->vm_ops->map_pages && fault_around_bytes >> PAGE_SHIFT > 1) {
+#endif
 		ret = do_fault_around(vmf);
 		if (ret)
 			return ret;
@@ -4401,7 +4410,9 @@ skip_pmd_checks:
 
 	if (!pte_present(vmf->orig_pte))
 		return do_swap_page(vmf);
-
+#ifdef CONFIG_HW_CGROUP_WORKINGSET
+	workingset_pagecache_on_ptefault(vmf);
+#endif
 	if (pte_protnone(vmf->orig_pte) && vma_is_accessible(vmf->vma))
 		return do_numa_page(vmf);
 
