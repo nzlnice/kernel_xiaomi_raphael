@@ -30,15 +30,16 @@
 
 
 /*
- * ZRAM is mainly used for memory efficiency so we want to keep memory
- * footprint small and thus squeeze size and zram pageflags into a flags
- * member. The lower ZRAM_FLAG_SHIFT bits is for object size (excluding
- * header), which cannot be larger than PAGE_SIZE (requiring PAGE_SHIFT
- * bits), the higher bits are for zram_pageflags.
+ * The lower ZRAM_FLAG_SHIFT bits of table.flags is for
+ * object size (excluding header), the higher bits is for
+ * zram_pageflags.
  *
- * We use BUILD_BUG_ON() to make sure that zram pageflags don't overflow.
+ * zram is mainly used for memory efficiency so we want to keep memory
+ * footprint small so we can squeeze size and flags into a field.
+ * The lower ZRAM_FLAG_SHIFT bits is for object size (excluding header),
+ * the higher bits is for zram_pageflags.
  */
-#define ZRAM_FLAG_SHIFT (PAGE_SHIFT + 1)
+#define ZRAM_FLAG_SHIFT 24
 
 /* Flags for zram pages (table[page_no].flags) */
 enum zram_pageflags {
@@ -81,11 +82,6 @@ struct zram_stats {
 	atomic64_t pages_stored;	/* no. of pages currently stored */
 	atomic_long_t max_used_pages;	/* no. of maximum pages stored */
 	atomic64_t writestall;		/* no. of write slow paths */
-	atomic64_t dup_data_size;	/*
-					 * compressed size of pages
-					 * duplicated
-					 */
-	atomic64_t meta_data_size;	/* size of zram_entries */
 	atomic64_t miss_free;		/* no. of missed free */
 #ifdef	CONFIG_ZRAM_WRITEBACK
 	atomic64_t bd_count;		/* no. of pages in backing device */
@@ -117,13 +113,12 @@ struct zram {
 	 * zram is claimed so open request will be failed
 	 */
 	bool claim; /* Protected by bdev->bd_mutex */
-#ifdef CONFIG_ZRAM_WRITEBACK
 	struct file *backing_dev;
+#ifdef CONFIG_ZRAM_WRITEBACK
 	spinlock_t wb_limit_lock;
 	bool wb_limit_enable;
 	u64 bd_wb_limit;
 	struct block_device *bdev;
-	unsigned int old_block_size;
 	unsigned long *bitmap;
 	unsigned long nr_pages;
 #endif
