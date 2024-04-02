@@ -753,7 +753,13 @@ KBUILD_CFLAGS   += -O3
 endif
 
 ifeq ($(cc-name),clang)
-KBUILD_CFLAGS	+= -mcpu=cortex-a76+crc+crypto -mtune=cortex-a76 -march=armv8.2-a+crc+crypto+lse+fp16+rdm+rcpc+dotprod
+# Enable fast FMA optimizations
+KBUILD_CFLAGS   += -ffp-contract=fast
+# Enable MLGO for register allocation
+KBUILD_CFLAGS   += -mllvm -regalloc-enable-advisor=release
+# Enable hot cold split optimization
+KBUILD_CFLAGS   += -mllvm -hot-cold-split=true
+KBUILD_CFLAGS	+= -march=armv8.2-a+crc+crypto+lse+fp16+rdm+rcpc+dotprod -mcpu=cortex-a76+crc+crypto
 endif
 
 # Tell gcc to never replace conditional load with a non-conditional one
@@ -832,6 +838,7 @@ KBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)
 ifeq ($(ld-name),lld)
 KBUILD_LDFLAGS  += -mllvm -mcpu=cortex-a76
 LDFLAGS += --lto-O3
+LDFLAGS += -mllvm -regalloc-enable-advisor=release
 endif
 
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-const-variable)
